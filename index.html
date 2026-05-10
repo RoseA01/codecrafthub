@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeCraftHub: Your Learning Management Platform</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary: #8B5CF6;
+      --primary-dark: #7C3AED;
+      --success: #F59E0B;
+      --danger: #EF4444;
+      --neutral-100: #F3F4F6;
+      --neutral-200: #E5E7EB;
+      --neutral-500: #6B7280;
+      --neutral-900: #111827;
+      --white: #FFFFFF;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--neutral-100);
+      color: var(--neutral-900);
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+      color: white;
+      padding: 1rem 2rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+    main {
+      max-width: 1100px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: 600;
+      font-size: 1.1rem;
+    }
+    .card-body {
+      padding: 1.75rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #374151;
+    }
+    .badge {
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge-not-started { background: #f3e8ff; color: #6b21a8; }
+    .badge-in-progress { background: #dbeafe; color: #1e40af; }
+    .badge-completed { background: #ecfdf5; color: #0f766e; }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-danger { background: #fee2e2; color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>🎓 CodeCraftHub</h1>
+      <button onclick="addNewCourse()" style="background:#8B5CF6;color:white;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;">
+        + Add New Course
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="card">
+      <div class="card-header">Add New Course</div>
+      <div class="card-body">
+        <form id="add-form">
+          <input type="text" id="name" placeholder="Course Name" required style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ccc;border-radius:8px;">
+          <input type="text" id="description" placeholder="Description" required style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ccc;border-radius:8px;">
+          <input type="date" id="target_date" required style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ccc;border-radius:8px;">
+          <select id="status" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ccc;border-radius:8px;">
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+          </select>
+          <button type="submit" style="background:#8B5CF6;color:white;padding:12px 24px;border:none;border-radius:8px;width:100%;">Add Course</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">My Courses</div>
+      <div class="card-body">
+        <input type="text" id="search" placeholder="Search courses..." style="width:100%;padding:10px;margin-bottom:15px;border:1px solid #ccc;border-radius:8px;" onkeyup="filterCourses()">
+        <table id="courses-table">
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Description</th>
+              <th>Status</th>
+              <th>Target Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="courses-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = window.location.origin + '/api/courses';
+
+    let allCourses = [];
+
+    async function loadCourses() {
+      try {
+        const res = await fetch(API);
+        const data = await res.json();
+        allCourses = data.courses || data;   // handles both formats
+        renderCourses();
+      } catch (e) {
+        console.error(e);
+        document.getElementById('courses-tbody').innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:#ef4444;">Failed to load courses.<br>Make sure server is running.</td></tr>`;
+      }
+    }
+
+    function renderCourses(filtered = allCourses) {
+      const tbody = document.getElementById('courses-tbody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:#6b7280;">No courses found</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = filtered.map(course => `
+        <tr>
+          <td><strong>${course.name}</strong></td>
+          <td>${course.description || ''}</td>
+          <td><span class="badge badge-${course.status.toLowerCase().replace(' ', '-')}">${course.status}</span></td>
+          <td>${course.target_date}</td>
+          <td>
+            <button onclick="deleteCourse(${course.id})" style="background:#fee2e2;color:#b91c1c;padding:4px 12px;border:none;border-radius:6px;cursor:pointer;">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterCourses() {
+      const query = document.getElementById('search').value.toLowerCase();
+      const filtered = allCourses.filter(c => 
+        c.name.toLowerCase().includes(query) || 
+        (c.description || '').toLowerCase().includes(query)
+      );
+      renderCourses(filtered);
+    }
+
+    async function deleteCourse(id) {
+      if (!confirm('Delete this course?')) return;
+      await fetch(`${API}/${id}`, { method: 'DELETE' });
+      loadCourses();
+    }
+
+    document.getElementById('add-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const newCourse = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        target_date: document.getElementById('target_date').value,
+        status: document.getElementById('status').value
+      };
+      await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCourse)
+      });
+      this.reset();
+      loadCourses();
+    });
+
+    // Load courses when page opens
+    window.onload = loadCourses;
+  </script>
+</body>
+</html>

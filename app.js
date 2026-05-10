@@ -8,16 +8,16 @@ const app = express();
 const DATA_FILE = path.join(__dirname, 'courses.json');
 const PORT = 5000;
 
-// Middleware to parse JSON request bodies
+// Middleware
 app.use(express.json());
+app.use(express.static(__dirname));   // ← Serves index.html and other static files
 
-// Helper function to load courses from JSON file
+// Helper functions
 function loadCourses() {
     if (!fs.existsSync(DATA_FILE)) {
         fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2));
         return [];
     }
-    
     try {
         const data = fs.readFileSync(DATA_FILE, 'utf8');
         return JSON.parse(data);
@@ -27,7 +27,6 @@ function loadCourses() {
     }
 }
 
-// Helper function to save courses to JSON file
 function saveCourses(courses) {
     try {
         fs.writeFileSync(DATA_FILE, JSON.stringify(courses, null, 2));
@@ -38,13 +37,17 @@ function saveCourses(courses) {
     }
 }
 
-// Get next available ID
 function getNextId(courses) {
-    if (courses.length === 0) {
-        return 1;
-    }
+    if (courses.length === 0) return 1;
     return Math.max(...courses.map(c => c.id)) + 1;
 }
+
+// ======================
+// Root route - shows the dashboard
+// ======================
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // ======================
 // GET all courses
@@ -66,7 +69,7 @@ app.get('/api/courses', (req, res) => {
 });
 
 // ======================
-// BONUS: STATISTICS ENDPOINT (Optional Challenge)
+// BONUS: STATISTICS ENDPOINT
 // ======================
 app.get('/api/courses/stats', (req, res) => {
     try {
@@ -81,7 +84,6 @@ app.get('/api/courses/stats', (req, res) => {
             }
         };
 
-        // Count courses by status
         courses.forEach(course => {
             const status = course.status;
             if (status in stats.byStatus) {
@@ -113,21 +115,12 @@ app.get('/api/courses/:id', (req, res) => {
         const course = courses.find(c => c.id === courseId);
         
         if (course) {
-            res.status(200).json({
-                success: true,
-                course: course
-            });
+            res.status(200).json({ success: true, course: course });
         } else {
-            res.status(404).json({
-                success: false,
-                error: `Course with ID ${courseId} not found`
-            });
+            res.status(404).json({ success: false, error: `Course with ID ${courseId} not found` });
         }
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: `Failed to retrieve course: ${error.message}`
-        });
+        res.status(500).json({ success: false, error: `Failed to retrieve course: ${error.message}` });
     }
 });
 
@@ -135,36 +128,23 @@ app.get('/api/courses/:id', (req, res) => {
 app.post('/api/courses', (req, res) => {
     try {
         const data = req.body;
-        
         if (!data || Object.keys(data).length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'No data provided'
-            });
+            return res.status(400).json({ success: false, error: 'No data provided' });
         }
-        
-        // Validate required fields
+
         const requiredFields = ['name', 'description', 'target_date', 'status'];
         const missingFields = requiredFields.filter(field => !data[field]);
         
         if (missingFields.length > 0) {
-            return res.status(400).json({
-                success: false,
-                error: `Missing required fields: ${missingFields.join(', ')}`
-            });
+            return res.status(400).json({ success: false, error: `Missing required fields: ${missingFields.join(', ')}` });
         }
-        
-        // Validate status
+
         const validStatuses = ['Not Started', 'In Progress', 'Completed'];
         if (!validStatuses.includes(data.status)) {
-            return res.status(400).json({
-                success: false,
-                error: `Status must be one of: ${validStatuses.join(', ')}`
-            });
+            return res.status(400).json({ success: false, error: `Status must be one of: ${validStatuses.join(', ')}` });
         }
-        
+
         const courses = loadCourses();
-        
         const newCourse = {
             id: getNextId(courses),
             name: data.name,
@@ -173,26 +153,15 @@ app.post('/api/courses', (req, res) => {
             status: data.status,
             created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
         };
-        
+
         courses.push(newCourse);
-        
         if (saveCourses(courses)) {
-            res.status(201).json({
-                success: true,
-                message: 'Course added successfully',
-                course: newCourse
-            });
+            res.status(201).json({ success: true, message: 'Course added successfully', course: newCourse });
         } else {
-            res.status(500).json({
-                success: false,
-                error: 'Failed to save course'
-            });
+            res.status(500).json({ success: false, error: 'Failed to save course' });
         }
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: `Failed to add course: ${error.message}`
-        });
+        res.status(500).json({ success: false, error: `Failed to add course: ${error.message}` });
     }
 });
 
@@ -201,61 +170,39 @@ app.put('/api/courses/:id', (req, res) => {
     try {
         const courseId = parseInt(req.params.id);
         const data = req.body;
-        
         if (!data || Object.keys(data).length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'No data provided'
-            });
+            return res.status(400).json({ success: false, error: 'No data provided' });
         }
-        
+
         const courses = loadCourses();
         const courseIndex = courses.findIndex(c => c.id === courseId);
         
         if (courseIndex === -1) {
-            return res.status(404).json({
-                success: false,
-                error: `Course with ID ${courseId} not found`
-            });
+            return res.status(404).json({ success: false, error: `Course with ID ${courseId} not found` });
         }
-        
-        // Validate status if being updated
+
         if (data.status) {
             const validStatuses = ['Not Started', 'In Progress', 'Completed'];
             if (!validStatuses.includes(data.status)) {
-                return res.status(400).json({
-                    success: false,
-                    error: `Status must be one of: ${validStatuses.join(', ')}`
-                });
+                return res.status(400).json({ success: false, error: `Status must be one of: ${validStatuses.join(', ')}` });
             }
         }
-        
-        // Update course fields
+
         const course = courses[courseIndex];
         if (data.name) course.name = data.name;
         if (data.description) course.description = data.description;
         if (data.target_date) course.target_date = data.target_date;
         if (data.status) course.status = data.status;
-        
+
         courses[courseIndex] = course;
-        
+
         if (saveCourses(courses)) {
-            res.status(200).json({
-                success: true,
-                message: 'Course updated successfully',
-                course: course
-            });
+            res.status(200).json({ success: true, message: 'Course updated successfully', course: course });
         } else {
-            res.status(500).json({
-                success: false,
-                error: 'Failed to save changes'
-            });
+            res.status(500).json({ success: false, error: 'Failed to save changes' });
         }
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: `Failed to update course: ${error.message}`
-        });
+        res.status(500).json({ success: false, error: `Failed to update course: ${error.message}` });
     }
 });
 
@@ -267,31 +214,18 @@ app.delete('/api/courses/:id', (req, res) => {
         const courseIndex = courses.findIndex(c => c.id === courseId);
         
         if (courseIndex === -1) {
-            return res.status(404).json({
-                success: false,
-                error: `Course with ID ${courseId} not found`
-            });
+            return res.status(404).json({ success: false, error: `Course with ID ${courseId} not found` });
         }
-        
+
         const deletedCourse = courses.splice(courseIndex, 1)[0];
-        
+
         if (saveCourses(courses)) {
-            res.status(200).json({
-                success: true,
-                message: 'Course deleted successfully',
-                deleted_course: deletedCourse
-            });
+            res.status(200).json({ success: true, message: 'Course deleted successfully', deleted_course: deletedCourse });
         } else {
-            res.status(500).json({
-                success: false,
-                error: 'Failed to save changes'
-            });
+            res.status(500).json({ success: false, error: 'Failed to save changes' });
         }
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: `Failed to delete course: ${error.message}`
-        });
+        res.status(500).json({ success: false, error: `Failed to delete course: ${error.message}` });
     }
 });
 
@@ -302,6 +236,7 @@ app.listen(PORT, () => {
     console.log('='.repeat(60));
     console.log(`Data will be stored in: ${path.resolve(DATA_FILE)}`);
     console.log(`API is available at: http://localhost:${PORT}`);
+    console.log('Dashboard available at: http://localhost:5000');
     console.log('='.repeat(60));
     console.log('\nPress CTRL+C to stop the server\n');
 });
